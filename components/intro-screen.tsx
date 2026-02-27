@@ -12,7 +12,7 @@ export default function IntroScreen({ onEnter }: IntroScreenProps) {
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0a0a0a]">
       <div className="flex flex-col items-center gap-8">
         <div className="animate-glow-pulse relative h-[300px] w-[300px]">
-          {/* Base SVG without smoke */}
+          {/* Base SVG without KIRK */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/donkeyintro.svg"
