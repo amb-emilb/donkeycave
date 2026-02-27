@@ -1,26 +1,62 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@font-face {
+  font-family: "PixelPurl";
+  src: url("/fonts/PixelPurl.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-cave-bg: #0a0a0a;
+  --color-cave-surface: #141414;
+  --color-cave-border: #222222;
+  --color-neon: #fe5733;
+  --color-neon-dim: #fe573380;
+  --color-neon-glow: #fe573340;
+  --font-pixel: "PixelPurl", monospace;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-radius: 0 !important;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-cave-bg);
+  color: #ededed;
+  font-family: var(--font-mono);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-cave-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-neon);
+  border: 1px solid var(--color-cave-bg);
+}
+
+/* Glow pulse animation for intro donkey */
+@keyframes glow-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px var(--color-neon-dim));
+  }
+  50% {
+    filter: drop-shadow(0 0 24px var(--color-neon)) drop-shadow(0 0 48px var(--color-neon-glow));
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2.5s ease-in-out infinite;
+}
+
+/* Neon text glow */
+.text-glow {
+  text-shadow: 0 0 10px var(--color-neon-dim), 0 0 20px var(--color-neon-glow);
 }
