@@ -61,6 +61,32 @@ export async function getTimeseries(
   return (data as TimeseriesBucket[]) ?? [];
 }
 
+/**
+ * Compute niche summaries from a set of divergences (no RPC needed).
+ */
+function computeNicheSummaries(divergences: Divergence[]): NicheSummary[] {
+  const byNiche: Record<string, Divergence[]> = {};
+  for (const d of divergences) {
+    (byNiche[d.niche] ??= []).push(d);
+  }
+
+  return Object.entries(byNiche)
+    .map(([niche, rows]) => {
+      const absValues = rows.map((r) => Math.abs(r.divergence));
+      const sum = absValues.reduce((a, b) => a + b, 0);
+      const maxIdx = absValues.indexOf(Math.max(...absValues));
+      return {
+        niche,
+        count: rows.length,
+        avg_abs_divergence: parseFloat((sum / rows.length).toFixed(4)),
+        max_abs_divergence: absValues[maxIdx],
+        top_market: rows[maxIdx].market_question,
+        top_divergence: rows[maxIdx].divergence,
+      };
+    })
+    .sort((a, b) => b.avg_abs_divergence - a.avg_abs_divergence);
+}
+
 export async function getDashboardData(
   lookbackHours = 24,
 ): Promise<DashboardData> {
@@ -68,13 +94,14 @@ export async function getDashboardData(
     Date.now() - lookbackHours * 60 * 60 * 1000
   ).toISOString();
 
-  const [lastCycle, divergences, nicheSummaries, timeseries] =
-    await Promise.all([
-      getLastCycle(),
-      getRecentDivergences(since),
-      getNicheSummaries(since),
-      getTimeseries(since),
-    ]);
+  // Latest cycle for table + stats; lookback for timeseries chart
+  const [lastCycle, divergences, timeseries] = await Promise.all([
+    getLastCycle(),
+    getLatestCycleDivergences(),
+    getTimeseries(since),
+  ]);
+
+  const nicheSummaries = computeNicheSummaries(divergences);
 
   return {
     divergences,

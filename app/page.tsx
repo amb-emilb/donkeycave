@@ -22,7 +22,9 @@ export default function HomePage() {
         return;
       }
     } catch {
-      // If auth check fails, proceed without auth
+      // If auth check fails, require password (fail closed)
+      setPhase("password");
+      return;
     }
     setPhase("transition");
   }
