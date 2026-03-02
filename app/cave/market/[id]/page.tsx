@@ -66,6 +66,7 @@ function MarketView({
 }) {
   const latest = records[0];
   const question = (latest.market_question as string) ?? "Unknown Market";
+  const slug = latest.slug as string | null;
   const conditionId = latest.condition_id as string | null;
   const yesTokenId = latest.yes_token_id as string | null;
   const volume24h = latest.volume_24h as number | null;
@@ -75,8 +76,8 @@ function MarketView({
   const negRisk = latest.neg_risk as boolean | null;
   const niche = (latest.niche as string) ?? "";
 
-  const polyUrl = conditionId
-    ? `https://polymarket.com/event/${conditionId}`
+  const polyUrl = slug
+    ? `https://polymarket.com/event/${slug}`
     : null;
 
   return (
