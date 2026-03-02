@@ -55,8 +55,10 @@ export const DOCS: DocEntry[] = [
         <h3>Update frequency</h3>
         <p>
           The monitor runs every <strong>30 minutes</strong> via pg_cron. Each
-          cycle processes ~200 markets across 6 active niches in ~5-7 seconds.
-          Data older than 30 days is automatically pruned.
+          cycle processes ~200 markets across 7 niches in ~5-7 seconds.
+          Data older than 30 days is automatically pruned. Each cycle also
+          generates an <strong>LLM insight note</strong> summarizing the
+          results via GPT-4o-mini.
         </p>
       </>
     ),
@@ -113,6 +115,14 @@ export const DOCS: DocEntry[] = [
           Finance, Crypto Hourly, xTracker, Sports, YouTube.
         </p>
 
+        <h3>Confidence Score</h3>
+        <p>
+          Each divergence has a confidence score (0.0-1.0) based on source
+          count, methodology quality (GBM model &gt; ensemble &gt; heuristic),
+          and hours to expiry. Higher confidence means the signal is more
+          trustworthy.
+        </p>
+
         <h3>DONKEY IN</h3>
         <p>
           The AI-powered recommendation feature. Enter a dollar amount and
@@ -120,6 +130,14 @@ export const DOCS: DocEntry[] = [
           recommends a single best bet with a confidence score and reasoning.
           This is for entertainment and educational purposes — not financial
           advice.
+        </p>
+
+        <h3>LLM Tab</h3>
+        <p>
+          The <strong>Log</strong> sub-tab shows auto-generated insight notes
+          from GPT-4o-mini after each monitor cycle — biggest divergences,
+          patterns, and notable shifts. The <strong>Chat</strong> sub-tab lets
+          you chat with Kirkster about the latest divergence data and strategy.
         </p>
       </>
     ),
@@ -138,42 +156,48 @@ export const DOCS: DocEntry[] = [
         <h3>Temperature</h3>
         <ul>
           <li>
-            <strong>Data source:</strong> OpenWeatherMap 5-day forecast API
+            <strong>Data sources:</strong> OpenWeatherMap 5-day forecast +
+            Open-Meteo ensemble forecast (two independent sources)
           </li>
           <li>
             <strong>Markets:</strong> &quot;Will the highest temperature in [city] be
             [X]°F or higher?&quot;
           </li>
           <li>
-            <strong>Method:</strong> Gaussian CDF with &sigma;=2.5°C (4.5°F).
+            <strong>Method:</strong> Ensemble average of OWM + Open-Meteo
+            (fetched in a single batch request). Gaussian CDF with
+            &sigma;=2.5°C, reduced by &radic;2 when both sources agree.
             For &quot;X or higher&quot;: P = 1 - &Phi;((target - forecast) / &sigma;).
-            For &quot;X or below&quot;: P = &Phi;((target - forecast) / &sigma;). For
-            exact value: P = &Phi;(target+0.5) - &Phi;(target-0.5). For ranges:
-            P = &Phi;(high) - &Phi;(low).
+            For ranges: P = &Phi;(high) - &Phi;(low).
+            Falls back to GPT-4o-mini parsing for non-standard question formats.
           </li>
         </ul>
 
         <h3>Finance</h3>
         <ul>
           <li>
-            <strong>Data source:</strong> Yahoo Finance API (with retry)
+            <strong>Data source:</strong> Yahoo Finance API (5-day chart with
+            realized volatility) + GPT-4o-mini news sentiment
           </li>
           <li>
             <strong>Markets:</strong> S&P 500, NVIDIA, Gold, Silver price
             thresholds
           </li>
           <li>
-            <strong>Method:</strong> Regex pattern matching to detect threshold
-            type (above/below/between), then comparison of current price to
-            target. Uses step-function probability based on distance from
-            threshold.
+            <strong>Method:</strong> Geometric Brownian Motion (GBM) CDF using
+            realized annualized volatility from Yahoo chart data. Computes
+            P(price &gt; threshold at expiry) via Black-Scholes-style d2 formula.
+            News sentiment from GPT-4o-mini nudges probability &plusmn;5%.
+            Falls back to LLM parsing for non-standard question formats.
           </li>
         </ul>
 
         <h3>Crypto Hourly</h3>
         <ul>
           <li>
-            <strong>Data source:</strong> Binance klines API (24 hourly candles)
+            <strong>Data source:</strong> Binance spot + klines (24 hourly
+            candles) + perpetual futures (funding rate, open interest) +
+            GPT-4o-mini news sentiment
           </li>
           <li>
             <strong>Markets:</strong> &quot;Will BTC/ETH be up or down this hour?&quot;
@@ -182,7 +206,8 @@ export const DOCS: DocEntry[] = [
             <strong>Method:</strong> Historical volatility from 24 hourly
             candles. Time-remaining-adjusted Gaussian CDF: &sigma;_remaining =
             &sigma; &times; &radic;(remaining_fraction). P(up) =
-            &Phi;(change% / &sigma;_remaining).
+            &Phi;(change% / &sigma;_remaining). Adjusted by funding rate
+            (positive = bullish bias) and news sentiment (&plusmn;5% nudge).
           </li>
         </ul>
 
@@ -282,6 +307,43 @@ P = normalCDF(0.5 / 0.69)  // ≈ 0.76`}
           of best bid and ask). We prefer CLOB when available:
         </p>
         <pre>{`bestPrice = market.clob_yes_price ?? market.yes_price`}</pre>
+
+        <h3>GBM Model (Finance)</h3>
+        <p>
+          Finance markets use a Geometric Brownian Motion CDF to compute
+          probability. Given current price S, threshold K, annualized
+          volatility &sigma;, and time T (in years):
+        </p>
+        <pre>
+{`d2 = (ln(S/K) - σ²/2 × T) / (σ × √T)
+P(above K) = Φ(d2)
+P(in range [L,H]) = P(above L) - P(above H)`}
+        </pre>
+
+        <h3>Confidence Score</h3>
+        <p>
+          Each divergence record now includes a <strong>confidence score</strong>{" "}
+          (0.0-1.0) based on: number of data sources (more = higher), methodology
+          quality (model &gt; ensemble &gt; heuristic), and hours to market expiry
+          (&lt;6h is highest confidence). This helps prioritize which divergences
+          to act on.
+        </p>
+
+        <h3>Time-to-Expiry Decay</h3>
+        <p>
+          Divergences are amplified or dampened based on how soon the market
+          expires. Markets expiring within 1 hour get a 1.5x multiplier (high
+          urgency), while markets &gt;24 hours out get 0.8x (more time for
+          correction).
+        </p>
+
+        <h3>LLM Fallback Parsing</h3>
+        <p>
+          When regex can&apos;t parse a market question (non-standard format),
+          GPT-4o-mini classifies it into threshold_above, threshold_below,
+          range, up_down, milestone, or bucket — then the appropriate probability
+          model is applied. Results are cached per cycle.
+        </p>
 
         <h3>Deduplication</h3>
         <p>
@@ -402,7 +464,7 @@ P = normalCDF(0.5 / 0.69)  // ≈ 0.76`}
         <h3>Stack</h3>
         <ul>
           <li>
-            <strong>Frontend:</strong> Next.js 15 (App Router), Tailwind CSS,
+            <strong>Frontend:</strong> Next.js 16 (App Router), Tailwind CSS 4,
             Recharts, Framer Motion
           </li>
           <li>
@@ -425,22 +487,25 @@ P = normalCDF(0.5 / 0.69)  // ≈ 0.76`}
   → Supabase Edge Function "monitor"
     → Gamma API: discover markets
     → CLOB API: enrich with midpoints + spreads
-    → 7 signal adapters: fetch external data
-    → Processors: compute divergences
-    → Supabase DB: upsert results
+    → 8 signal adapters: fetch external data
+    → Processors: compute divergences + confidence
+    → GPT-4o-mini: generate cycle insight note
+    → Supabase DB: upsert results + save insight
       → Supabase Realtime: push to dashboard`}
         </pre>
 
         <h3>Signal Adapters</h3>
         <pre>
 {`signals/
-  binance.ts     — Binance klines for crypto hourly
-  finance.ts     — Yahoo Finance for stocks/commodities
-  temperature.ts — OpenWeatherMap forecast
+  binance.ts     — Spot price + klines + funding rate + OI
+  finance.ts     — Yahoo Finance with realized volatility
+  temperature.ts — OWM + Open-Meteo ensemble (batch)
   xtracker.ts    — xTracker post counts
   sports.ts      — The Odds API for UFC
   youtube.ts     — YouTube Data API
-  weather.ts     — Rain markets (no active markets)`}
+  weather.ts     — Rain markets (no active markets)
+  llm.ts         — GPT-4o-mini market parsing + sentiment
+  insight.ts     — Cycle insight note generator`}
         </pre>
 
         <h3>API Endpoints</h3>
@@ -465,6 +530,9 @@ P = normalCDF(0.5 / 0.69)  // ≈ 0.76`}
             <code>GET /api/polymarket/prices-history</code> — Proxy to CLOB
             price history
           </li>
+          <li>
+            <code>POST /api/llm/chat</code> — Chat with Kirkster AI (context-aware)
+          </li>
         </ul>
 
         <h3>Database Schema</h3>
@@ -473,26 +541,26 @@ P = normalCDF(0.5 / 0.69)  // ≈ 0.76`}
   id UUID PK
   status TEXT (running/completed/failed)
   started_at / completed_at TIMESTAMPTZ
-  record_count INT
-  error_message TEXT
+  total_records INT, duration_ms INT
+  error_message TEXT, niches_run TEXT[]
 
 divergences
-  id UUID PK
+  id BIGINT PK
   cycle_id UUID FK → cycles
-  niche TEXT
-  market_question TEXT
-  poly_yes_price NUMERIC
-  signal_prob NUMERIC
-  divergence NUMERIC
-  signal_detail TEXT
-  condition_id TEXT
-  yes_token_id TEXT
-  volume_24h NUMERIC
-  spread NUMERIC
-  end_date TIMESTAMPTZ
-  clob_yes_price NUMERIC
-  neg_risk BOOLEAN
-  timestamp TIMESTAMPTZ`}
+  niche, market_question, poly_yes_price
+  signal_value, signal_prob, divergence
+  signal_detail, confidence NUMERIC(4,3)
+  condition_id, yes_token_id, no_token_id
+  volume_24h, spread, end_date
+  clob_yes_price, neg_risk, timestamp
+
+llm_logs
+  id BIGINT PK
+  created_at TIMESTAMPTZ
+  cycle_id UUID FK → cycles (nullable)
+  type TEXT ('insight' | 'chat')
+  role TEXT ('user' | 'assistant')
+  content TEXT, metadata JSONB`}
         </pre>
       </>
     ),
