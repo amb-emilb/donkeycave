@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import BrutalistButton from "@/components/ui/brutalist-button";
 
 export interface DivergenceRecord {
@@ -106,7 +107,8 @@ export default function DivergenceTable({
 
   return (
     <div className="border-[3px] border-[#fe5733] bg-[#141414]">
-      <div className="overflow-x-auto">
+      {/* Desktop table */}
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full border-collapse font-mono text-sm">
           <thead>
             <tr className="border-b-[3px] border-[#fe5733]">
@@ -151,7 +153,12 @@ export default function DivergenceTable({
                       </span>
                     </td>
                     <td className="max-w-[300px] p-3 text-gray-300" title={row.question}>
-                      {truncateText(row.question, 55)}
+                      <Link
+                        href={`/cave/market/${row.id}`}
+                        className="hover:text-[#fe5733] hover:underline"
+                      >
+                        {truncateText(row.question, 55)}
+                      </Link>
                     </td>
                     <td className="p-3 text-right text-gray-300">
                       {(row.polyYes * 100).toFixed(1)}%
@@ -174,6 +181,44 @@ export default function DivergenceTable({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile card layout */}
+      <div className="block md:hidden">
+        {pagedData.length === 0 ? (
+          <p className="p-8 text-center font-mono text-sm text-gray-500">
+            No records found
+          </p>
+        ) : (
+          <div className="divide-y divide-[#222]">
+            {pagedData.map((row) => (
+              <Link
+                key={row.id}
+                href={`/cave/market/${row.id}`}
+                className="block p-4 transition-colors hover:bg-[#1a1a1a]"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="border-[2px] border-[#fe5733]/50 bg-[#fe5733]/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-[#fe5733]">
+                    {row.niche}
+                  </span>
+                  <span
+                    className={`font-mono text-sm font-bold ${divergenceColor(row.divergence)}`}
+                  >
+                    {row.divergence > 0 ? "+" : ""}
+                    {(row.divergence * 100).toFixed(2)}%
+                  </span>
+                </div>
+                <p className="mb-2 font-mono text-xs text-gray-300">
+                  {truncateText(row.question, 70)}
+                </p>
+                <div className="flex gap-4 font-mono text-[10px] text-gray-500">
+                  <span>Poly: {(row.polyYes * 100).toFixed(1)}%</span>
+                  <span>Signal: {(row.signalProb * 100).toFixed(1)}%</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Pagination */}

@@ -10,6 +10,13 @@ export interface Divergence {
   divergence: number;
   signal_detail: string | null;
   abs_divergence: number;
+  condition_id: string | null;
+  yes_token_id: string | null;
+  volume_24h: number | null;
+  spread: number | null;
+  end_date: string | null;
+  clob_yes_price: number | null;
+  neg_risk: boolean | null;
 }
 
 export interface Cycle {

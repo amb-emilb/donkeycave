@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 export interface Opportunity {
   id: string;
   question: string;
@@ -56,12 +58,13 @@ export default function TopOpportunities({
                     {opp.niche}
                   </span>
                 </div>
-                <p
-                  className="mb-2 font-mono text-xs text-gray-300"
+                <Link
+                  href={`/cave/market/${opp.id}`}
+                  className="mb-2 block font-mono text-xs text-gray-300 hover:text-[#fe5733] hover:underline"
                   title={opp.question}
                 >
                   {truncateText(opp.question, 60)}
-                </p>
+                </Link>
                 <div className="flex items-center gap-4 font-mono text-[10px] uppercase text-gray-500">
                   <span>
                     Poly: <span className="text-gray-300">{(opp.polyYes * 100).toFixed(1)}%</span>

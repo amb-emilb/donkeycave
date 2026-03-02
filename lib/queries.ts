@@ -61,8 +61,12 @@ export async function getTimeseries(
   return (data as TimeseriesBucket[]) ?? [];
 }
 
-export async function getDashboardData(): Promise<DashboardData> {
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+export async function getDashboardData(
+  lookbackHours = 24,
+): Promise<DashboardData> {
+  const since = new Date(
+    Date.now() - lookbackHours * 60 * 60 * 1000
+  ).toISOString();
 
   const [lastCycle, divergences, nicheSummaries, timeseries] =
     await Promise.all([

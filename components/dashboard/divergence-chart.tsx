@@ -105,7 +105,8 @@ export default function DivergenceChart({
       <h3 className="mb-4 font-pixel text-base uppercase tracking-wide text-[#fe5733]">
         Divergence Over Time
       </h3>
-      <ResponsiveContainer width="100%" height={350}>
+      <div className="h-[250px] md:h-[350px]">
+      <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke="#333" />
           <XAxis
@@ -139,6 +140,7 @@ export default function DivergenceChart({
           ))}
         </AreaChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }

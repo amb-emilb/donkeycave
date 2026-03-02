@@ -1,14 +1,14 @@
+import { NextResponse } from "next/server";
 import { getDashboardData } from "@/lib/queries";
-import DashboardShell from "@/components/dashboard/shell";
-import type { DashboardData } from "@/components/dashboard/shell";
 
-export const revalidate = 1800; // ISR: 30 min matches cron
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const lookback = Math.min(168, Math.max(1, parseInt(searchParams.get("lookback") ?? "24", 10)));
 
-export default async function CavePage() {
-  const raw = await getDashboardData();
+  const raw = await getDashboardData(lookback);
 
-  // Transform Supabase snake_case → component camelCase
-  const data: DashboardData = {
+  // Same snake→camel transform as cave/page.tsx
+  const data = {
     divergences: raw.divergences.map((d) => ({
       id: String(d.id),
       niche: d.niche,
@@ -43,9 +43,9 @@ export default async function CavePage() {
       count: Number(t.record_count),
     })),
     lastCycle: raw.lastCycle?.completed_at
-      ? new Date(raw.lastCycle.completed_at)
-      : new Date(),
+      ? new Date(raw.lastCycle.completed_at).toISOString()
+      : new Date().toISOString(),
   };
 
-  return <DashboardShell initialData={data} />;
+  return NextResponse.json(data);
 }
