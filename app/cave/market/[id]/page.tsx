@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import ExpandableCell from "@/components/dashboard/expandable-cell";
+import Orderbook from "@/components/market/orderbook";
+import PriceChart from "@/components/market/price-chart";
 
 export const revalidate = 1800;
 
@@ -78,15 +81,7 @@ function MarketView({
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] p-4 md:p-8">
-      <div className="mx-auto max-w-4xl">
-        {/* Back link */}
-        <Link
-          href="/cave"
-          className="mb-6 inline-block border-[2px] border-[#333] px-4 py-2 font-mono text-xs text-gray-400 transition-colors hover:border-[#fe5733] hover:text-[#fe5733]"
-        >
-          &larr; BACK TO CAVE
-        </Link>
-
+      <div className="mx-auto max-w-6xl">
         {/* Header */}
         <div className="mb-6 border-[3px] border-[#fe5733] bg-[#141414] p-6">
           <div className="mb-2 flex items-center gap-2">
@@ -113,6 +108,16 @@ function MarketView({
               View on Polymarket &rarr;
             </a>
           )}
+        </div>
+
+        {/* Price chart + Orderbook */}
+        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <PriceChart tokenId={yesTokenId} />
+          </div>
+          <div className="lg:col-span-1">
+            <Orderbook tokenId={yesTokenId} />
+          </div>
         </div>
 
         {/* Metadata grid */}
@@ -227,9 +232,9 @@ function MarketView({
                         {div > 0 ? "+" : ""}
                         {(div * 100).toFixed(2)}%
                       </td>
-                      <td className="max-w-[200px] truncate p-3 text-xs text-gray-500">
-                        {(r.signal_detail as string) ?? ""}
-                      </td>
+                      <ExpandableCell
+                        text={(r.signal_detail as string) ?? ""}
+                      />
                     </tr>
                   );
                 })}

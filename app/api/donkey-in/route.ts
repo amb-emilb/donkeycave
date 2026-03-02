@@ -49,6 +49,11 @@ export async function POST(request: Request) {
 
     const recommendation: Recommendation = JSON.parse(cleaned);
 
+    // Normalize: if AI returned percentage instead of decimal, convert
+    if (Math.abs(recommendation.divergence) > 1) {
+      recommendation.divergence = recommendation.divergence / 100;
+    }
+
     return NextResponse.json({ recommendation });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

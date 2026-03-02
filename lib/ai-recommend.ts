@@ -38,7 +38,7 @@ Respond with ONLY valid JSON (no markdown, no code fences):
   "action": "BUY YES" or "BUY NO",
   "confidence": 1-10,
   "reasoning": "2-3 sentences explaining why, be entertaining",
-  "divergence": the divergence number,
+  "divergence": the raw decimal divergence value (e.g. 0.15 not 15),
   "niche": "the niche"
 }`;
 }

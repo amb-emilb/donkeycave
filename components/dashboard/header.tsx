@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
 
 interface HeaderProps {
@@ -37,23 +36,13 @@ export default function Header({ lastUpdate }: HeaderProps) {
   }, [lastUpdate]);
 
   return (
-    <header className="flex items-center justify-between border-b-[3px] border-[#fe5733] bg-[#141414] p-4">
-      <div className="flex items-center gap-3">
-        <Image
-          src="/donkeyintro.svg"
-          alt="Donkey Cave"
-          width={32}
-          height={32}
-          className="h-8 w-8"
-        />
-        <h1 className="font-pixel text-xl uppercase tracking-wider text-[#fe5733] md:text-2xl">
-          DONKEY CAVE
-        </h1>
-      </div>
-
-      <div className="font-mono text-xs uppercase tracking-wide text-gray-500">
+    <div className="flex items-center justify-between border-b border-[#333] bg-[#0a0a0a] px-4 py-2">
+      <span className="font-mono text-xs uppercase tracking-wide text-gray-500">
+        Divergence Monitor
+      </span>
+      <span className="font-mono text-xs uppercase tracking-wide text-gray-500">
         Last updated: {relativeTime}
-      </div>
-    </header>
+      </span>
+    </div>
   );
 }

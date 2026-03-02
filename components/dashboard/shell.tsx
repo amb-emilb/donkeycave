@@ -19,7 +19,6 @@ import DateRangeSelector, {
   type LookbackPreset,
 } from "@/components/dashboard/date-range-selector";
 import ExportButton from "@/components/dashboard/export-button";
-import AuthGate from "@/components/dashboard/auth-gate";
 import { useRealtime } from "@/hooks/use-realtime";
 
 export interface DashboardData {
@@ -38,22 +37,7 @@ export default function DashboardShell({ initialData }: DashboardShellProps) {
   const [activeNiche, setActiveNiche] = useState<Niche>("ALL");
   const [showDonkeyIn, setShowDonkeyIn] = useState(false);
   const [lookback, setLookback] = useState<LookbackPreset>(24);
-  const [authRequired, setAuthRequired] = useState(false);
-  const [isAuthed, setIsAuthed] = useState(true);
   const [loading, setLoading] = useState(false);
-
-  // Check auth status on mount
-  useEffect(() => {
-    fetch("/api/auth")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.required) {
-          setAuthRequired(true);
-          setIsAuthed(d.authed);
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   // Fetch data when lookback changes
   useEffect(() => {
@@ -76,7 +60,7 @@ export default function DashboardShell({ initialData }: DashboardShellProps) {
 
   // Realtime updates
   useRealtime({
-    enabled: isAuthed,
+    enabled: true,
     onNewCycle: () => {
       setData((prev) => ({ ...prev, lastCycle: new Date() }));
     },
@@ -157,11 +141,6 @@ export default function DashboardShell({ initialData }: DashboardShellProps) {
       detail: d.detail,
     }));
   }, [filteredDivergences]);
-
-  // Auth gate
-  if (authRequired && !isAuthed) {
-    return <AuthGate onAuthenticated={() => setIsAuthed(true)} />;
-  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
