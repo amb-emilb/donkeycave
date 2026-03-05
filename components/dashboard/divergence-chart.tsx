@@ -86,9 +86,8 @@ export default function DivergenceChart({
     entry[d.niche] = d.avgDivergence;
   }
 
-  const chartData = Array.from(bucketMap.values()).sort((a, b) =>
-    a.bucket.localeCompare(b.bucket)
-  );
+  // Preserve insertion order (API returns buckets sorted by time)
+  const chartData = Array.from(bucketMap.values());
 
   if (chartData.length === 0) {
     return (

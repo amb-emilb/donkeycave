@@ -3,13 +3,34 @@ import { getDashboardData } from "@/lib/queries";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const lookback = Math.min(168, Math.max(1, parseInt(searchParams.get("lookback") ?? "24", 10)));
+  const raw = parseInt(searchParams.get("lookback") ?? "24", 10);
+  // 0 = all time; otherwise clamp to [1, 87600] (10 years)
+  const lookback = raw === 0 ? 0 : Math.min(87600, Math.max(1, raw));
 
-  const raw = await getDashboardData(lookback);
+  const data = await getDashboardData(lookback);
+
+  // Pick date format based on range
+  const formatBucket = (iso: string) => {
+    const d = new Date(iso);
+    if (lookback <= 48) {
+      // Hourly: "Mar 5, 3 PM"
+      return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric" });
+    }
+    if (lookback <= 168) {
+      // 4-hour: "Mar 5, 4 PM"
+      return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric" });
+    }
+    if (lookback <= 720) {
+      // Daily: "Mar 5"
+      return d.toLocaleString("en-US", { month: "short", day: "numeric" });
+    }
+    // Weekly: "Mar 5"
+    return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "2-digit" });
+  };
 
   // Same snake→camel transform as cave/page.tsx
-  const data = {
-    divergences: raw.divergences.map((d) => ({
+  const result = {
+    divergences: data.divergences.map((d) => ({
       id: String(d.id),
       niche: d.niche,
       question: d.market_question,
@@ -25,27 +46,23 @@ export async function GET(req: Request) {
       clobYesPrice: d.clob_yes_price ? Number(d.clob_yes_price) : null,
       negRisk: d.neg_risk ?? false,
     })),
-    nicheSummaries: raw.nicheSummaries.map((n) => ({
+    nicheSummaries: data.nicheSummaries.map((n) => ({
       niche: n.niche,
       count: Number(n.count),
       avgDivergence: Number(n.avg_abs_divergence),
       topMarket: n.top_market ?? "N/A",
       topDivergence: Number(n.top_divergence),
     })),
-    timeseries: raw.timeseries.map((t) => ({
-      bucket: new Date(t.bucket).toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-      }),
+    timeseries: data.timeseries.map((t) => ({
+      bucket: formatBucket(t.bucket),
       niche: t.niche,
       avgDivergence: Number(t.avg_abs_divergence),
       count: Number(t.record_count),
     })),
-    lastCycle: raw.lastCycle?.completed_at
-      ? new Date(raw.lastCycle.completed_at).toISOString()
+    lastCycle: data.lastCycle?.completed_at
+      ? new Date(data.lastCycle.completed_at).toISOString()
       : new Date().toISOString(),
   };
 
-  return NextResponse.json(data);
+  return NextResponse.json(result);
 }

@@ -56,9 +56,28 @@ export const DOCS: DocEntry[] = [
         <p>
           The monitor runs every <strong>30 minutes</strong> via pg_cron. Each
           cycle processes ~200 markets across 7 niches in ~5-7 seconds.
-          Data older than 30 days is automatically pruned. Each cycle also
-          generates an <strong>LLM insight note</strong> summarizing the
-          results via GPT-4o-mini.
+          Markets beyond a niche-specific horizon are filtered out (e.g.,
+          temperature markets more than 10 days away, crypto beyond today).
+          Data older than 30 days is automatically pruned.
+        </p>
+
+        <h3>Nightly Analysis</h3>
+        <p>
+          At 04:00 UTC, a <strong>resolver</strong> edge function checks which
+          markets have resolved, computes Brier accuracy scores per niche,
+          tracks convergence speed, and generates a <strong>GPT-4o strategic
+          analysis</strong> with institutional memory. Knowledge accumulates
+          permanently in a <strong>pgvector-backed memory store</strong> —
+          the agent retrieves relevant past knowledge via cosine similarity
+          and can add, update, or invalidate memories over time.
+        </p>
+
+        <h3>Smart Alerts</h3>
+        <p>
+          Discord alerts only fire for truly interesting opportunities:
+          confidence &ge; 0.7, net edge &ge; 8% after fees, volume &ge; $1K.
+          Each alert includes a GPT-4o-mini-generated justification. If nothing
+          qualifies, the alert stays silent.
         </p>
       </>
     ),
@@ -117,10 +136,12 @@ export const DOCS: DocEntry[] = [
 
         <h3>Confidence Score</h3>
         <p>
-          Each divergence has a confidence score (0.0-1.0) based on source
-          count, methodology quality (GBM model &gt; ensemble &gt; heuristic),
-          and hours to expiry. Higher confidence means the signal is more
-          trustworthy.
+          Each divergence has a Bayesian confidence score (0.0-1.0) computed
+          via log-odds accumulation. Factors: source count (multi-source
+          boosts), methodology quality (model &gt; ensemble &gt; heuristic),
+          hours to expiry (&lt;1h is highest), source variance (penalizes
+          disagreement), and cross-niche correlation (10% boost when paired
+          niches agree). Higher confidence means more trustworthy signal.
         </p>
 
         <h3>DONKEY IN</h3>
@@ -134,10 +155,12 @@ export const DOCS: DocEntry[] = [
 
         <h3>LLM Tab</h3>
         <p>
-          The <strong>Log</strong> sub-tab shows auto-generated insight notes
-          from GPT-4o-mini after each monitor cycle — biggest divergences,
-          patterns, and notable shifts. The <strong>Chat</strong> sub-tab lets
-          you chat with Kirkster about the latest divergence data and strategy.
+          The <strong>Log</strong> sub-tab shows nightly strategic analyses
+          from GPT-4o (with niche assessments, accuracy trends, and actionable
+          recommendations) plus compact cycle summaries from each monitor run.
+          The <strong>Chat</strong> sub-tab lets you chat with Kirkster, who
+          has access to the latest divergence data, nightly analysis, and
+          accumulated long-term knowledge via vector memory search.
         </p>
       </>
     ),
@@ -164,11 +187,14 @@ export const DOCS: DocEntry[] = [
             [X]°F or higher?&quot;
           </li>
           <li>
+            <strong>Horizon:</strong> Markets within 10 days only
+          </li>
+          <li>
             <strong>Method:</strong> Ensemble average of OWM + Open-Meteo
             (fetched in a single batch request). Gaussian CDF with
             &sigma;=2.5°C, reduced by &radic;2 when both sources agree.
-            For &quot;X or higher&quot;: P = 1 - &Phi;((target - forecast) / &sigma;).
-            For ranges: P = &Phi;(high) - &Phi;(low).
+            Forecast age penalty: &sigma; &times; &radic;(1 + 0.1 &times; daysAhead)
+            — further-out forecasts get wider uncertainty.
             Falls back to GPT-4o-mini parsing for non-standard question formats.
           </li>
         </ul>
@@ -184,11 +210,16 @@ export const DOCS: DocEntry[] = [
             thresholds
           </li>
           <li>
+            <strong>Horizon:</strong> Markets within 30 days only
+          </li>
+          <li>
             <strong>Method:</strong> Geometric Brownian Motion (GBM) CDF using
-            realized annualized volatility from Yahoo chart data. Computes
-            P(price &gt; threshold at expiry) via Black-Scholes-style d2 formula.
-            News sentiment from GPT-4o-mini nudges probability &plusmn;5%.
-            Falls back to LLM parsing for non-standard question formats.
+            GARCH(1,1) annualized volatility. P(price &gt; threshold at expiry)
+            via Black-Scholes-style d2 formula. FOMC/CPI macro calendar
+            inflates volatility (2.0x/1.5x) when events fall within market
+            window. Grounded news sentiment from Google News RSS headlines
+            (not ungrounded training data). Falls back to LLM parsing for
+            non-standard formats.
           </li>
         </ul>
 
@@ -203,11 +234,15 @@ export const DOCS: DocEntry[] = [
             <strong>Markets:</strong> &quot;Will BTC/ETH be up or down this hour?&quot;
           </li>
           <li>
-            <strong>Method:</strong> Historical volatility from 24 hourly
-            candles. Time-remaining-adjusted Gaussian CDF: &sigma;_remaining =
-            &sigma; &times; &radic;(remaining_fraction). P(up) =
-            &Phi;(change% / &sigma;_remaining). Adjusted by funding rate
-            (positive = bullish bias) and news sentiment (&plusmn;5% nudge).
+            <strong>Horizon:</strong> Current hour only (1 day max)
+          </li>
+          <li>
+            <strong>Method:</strong> GARCH(1,1) volatility from hourly candles.
+            When sufficient data exists, uses <strong>Merton jump-diffusion
+            </strong> (Poisson-distributed jumps on GBM) for more accurate
+            tail risk modeling. Falls back to time-remaining-adjusted Gaussian
+            CDF. Adjusted by funding rate (positive = bullish bias) and
+            grounded news sentiment from Google News RSS.
           </li>
         </ul>
 
@@ -222,9 +257,14 @@ export const DOCS: DocEntry[] = [
             [date]?&quot;
           </li>
           <li>
-            <strong>Method:</strong> Decay-weighted projection using actual post
-            timestamps. Recent 25% of elapsed period weighted 70%, overall rate
-            weighted 30%. Projected final count compared to market threshold.
+            <strong>Horizon:</strong> Markets within 14 days only
+          </li>
+          <li>
+            <strong>Method:</strong> Exponential recency-weighted projection
+            using actual post timestamps (weight = e^(-2 &times; ageHours/totalHours)).
+            Projected count uses <strong>Poisson CDF</strong> (post counts are
+            count data: &sigma; = &radic;projected). For ranges:
+            P = &Phi;((high+0.5-projected)/&sigma;) - &Phi;((low-0.5-projected)/&sigma;).
           </li>
         </ul>
 
@@ -237,9 +277,13 @@ export const DOCS: DocEntry[] = [
             <strong>Markets:</strong> UFC fighter win markets
           </li>
           <li>
-            <strong>Method:</strong> American odds → implied probability
-            conversion. Odds of -150 → P = 150/250 = 60%. Odds of +200 → P =
-            100/300 = 33.3%.
+            <strong>Horizon:</strong> Markets within 30 days only
+          </li>
+          <li>
+            <strong>Method:</strong> <strong>Tier-weighted</strong> implied
+            probability across bookmakers. Pinnacle and DraftKings get 2x
+            weight, BetMGM 1.5x (sharper books are more accurate). American
+            odds → implied probability conversion with de-vigging.
           </li>
         </ul>
 
@@ -320,13 +364,15 @@ P(above K) = Φ(d2)
 P(in range [L,H]) = P(above L) - P(above H)`}
         </pre>
 
-        <h3>Confidence Score</h3>
+        <h3>Bayesian Confidence Score</h3>
         <p>
-          Each divergence record now includes a <strong>confidence score</strong>{" "}
-          (0.0-1.0) based on: number of data sources (more = higher), methodology
-          quality (model &gt; ensemble &gt; heuristic), and hours to market expiry
-          (&lt;6h is highest confidence). This helps prioritize which divergences
-          to act on.
+          Confidence is computed via <strong>log-odds accumulation</strong>,
+          not simple addition. Starting from a base prior (~0.4), evidence
+          shifts the log-odds: +0.15 per extra source, +0.30 for ensemble/model
+          methodology, +0.40 for &lt;1h to expiry. Source variance penalizes
+          disagreement (-0.20). Final score is sigmoid-transformed to 0-1.
+          Cross-niche correlation gives a 10% boost when paired niches
+          (e.g., xTracker + crypto) show same-direction divergence.
         </p>
 
         <h3>Time-to-Expiry Decay</h3>
@@ -483,29 +529,43 @@ P(in range [L,H]) = P(above L) - P(above H)`}
 
         <h3>Data Flow</h3>
         <pre>
-{`pg_cron (every 30 min)
-  → Supabase Edge Function "monitor"
-    → Gamma API: discover markets
-    → CLOB API: enrich with midpoints + spreads
-    → 8 signal adapters: fetch external data
-    → Processors: compute divergences + confidence
-    → GPT-4o-mini: generate cycle insight note
-    → Supabase DB: upsert results + save insight
-      → Supabase Realtime: push to dashboard`}
+{`pg_cron (every 30 min) → Edge Function "monitor"
+  → Gamma API: discover markets + horizon filter
+  → CLOB API: enrich with midpoints + spreads
+  → 7 signal adapters (parallel): fetch external data
+  → Processors: divergences + Bayesian confidence
+  → Cross-niche correlation boost
+  → DB upsert + deterministic cycle summary
+  → Smart Discord alert (if high-conviction found)
+  → Supabase Realtime: push to dashboard
+
+pg_cron (nightly 04:00 UTC) → Edge Function "resolver"
+  → Gamma API: check market resolutions
+  → Convergence speed tracking (1h/6h/24h)
+  → Brier scores per niche (30-day window)
+  → GPT-4o nightly analysis:
+    → Vector memory retrieval (cosine similarity)
+    → Structured analysis + recommendations
+    → Memory operations: add/update/invalidate
+  → Store analysis + apply memory updates`}
         </pre>
 
         <h3>Signal Adapters</h3>
         <pre>
-{`signals/
-  binance.ts     — Spot price + klines + funding rate + OI
-  finance.ts     — Yahoo Finance with realized volatility
-  temperature.ts — OWM + Open-Meteo ensemble (batch)
-  xtracker.ts    — xTracker post counts
-  sports.ts      — The Odds API for UFC
-  youtube.ts     — YouTube Data API
-  weather.ts     — Rain markets (no active markets)
-  llm.ts         — GPT-4o-mini market parsing + sentiment
-  insight.ts     — Cycle insight note generator`}
+{`monitor/signals/
+  binance.ts        — Spot + klines + funding + OI + GARCH
+  finance.ts        — Yahoo Finance + GARCH volatility
+  temperature.ts    — OWM + Open-Meteo ensemble (batch)
+  xtracker.ts       — Exp recency-weighted projection
+  sports.ts         — Odds API (tier-weighted books)
+  youtube.ts        — YouTube Data API
+  weather.ts        — Rain markets (no active markets)
+  llm.ts            — GPT-4o-mini + grounded news sentiment
+  garch.ts          — GARCH(1,1) + jump-diffusion fitting
+  macro-calendar.ts — FOMC/CPI 2026 vol multipliers
+
+resolver/
+  analysis.ts       — GPT-4o nightly + vector memory ops`}
         </pre>
 
         <h3>API Endpoints</h3>
@@ -537,30 +597,17 @@ P(in range [L,H]) = P(above L) - P(above H)`}
 
         <h3>Database Schema</h3>
         <pre>
-{`cycles
-  id UUID PK
-  status TEXT (running/completed/failed)
-  started_at / completed_at TIMESTAMPTZ
-  total_records INT, duration_ms INT
-  error_message TEXT, niches_run TEXT[]
-
-divergences
-  id BIGINT PK
-  cycle_id UUID FK → cycles
-  niche, market_question, poly_yes_price
-  signal_value, signal_prob, divergence
-  signal_detail, confidence NUMERIC(4,3)
-  condition_id, yes_token_id, no_token_id
-  volume_24h, spread, end_date
-  clob_yes_price, neg_risk, timestamp
-
-llm_logs
-  id BIGINT PK
-  created_at TIMESTAMPTZ
-  cycle_id UUID FK → cycles (nullable)
-  type TEXT ('insight' | 'chat')
-  role TEXT ('user' | 'assistant')
-  content TEXT, metadata JSONB`}
+{`cycles — one row per monitor run
+divergences — market comparisons per cycle
+divergence_snapshots — hourly compacted aggregates
+niche_accuracy — Brier scores per niche (30-day)
+llm_logs — analyses, summaries, chat messages
+  type: 'nightly_analysis' | 'cycle_summary' | 'chat'
+  metadata: JSONB (niche_assessments, recommendations, etc.)
+strategic_memory — pgvector long-term knowledge
+  embedding: vector(1536) — text-embedding-3-small
+  category, niche, content, confidence
+  match_memories() RPC for cosine similarity search`}
         </pre>
       </>
     ),

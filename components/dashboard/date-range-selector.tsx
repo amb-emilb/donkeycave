@@ -1,6 +1,6 @@
 "use client";
 
-export type LookbackPreset = 6 | 12 | 24 | 48 | 168;
+export type LookbackPreset = 6 | 12 | 24 | 48 | 168 | 720 | 8760 | 0;
 
 interface DateRangeSelectorProps {
   value: LookbackPreset;
@@ -13,6 +13,9 @@ const PRESETS: { label: string; value: LookbackPreset }[] = [
   { label: "24H", value: 24 },
   { label: "48H", value: 48 },
   { label: "7D", value: 168 },
+  { label: "1M", value: 720 },
+  { label: "1Y", value: 8760 },
+  { label: "ALL", value: 0 },
 ];
 
 export default function DateRangeSelector({
@@ -20,12 +23,12 @@ export default function DateRangeSelector({
   onChange,
 }: DateRangeSelectorProps) {
   return (
-    <div className="flex gap-1">
+    <div className="flex flex-wrap gap-1">
       {PRESETS.map((p) => {
         const active = p.value === value;
         return (
           <button
-            key={p.value}
+            key={p.label}
             onClick={() => onChange(p.value)}
             className={`border-[2px] px-3 py-1 font-mono text-xs font-bold uppercase transition-colors ${
               active

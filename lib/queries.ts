@@ -53,10 +53,12 @@ export async function getNicheSummaries(
 }
 
 export async function getTimeseries(
-  since: string
+  since: string,
+  bucketInterval = "1 hour"
 ): Promise<TimeseriesBucket[]> {
   const { data } = await supabase.rpc("get_divergence_timeseries", {
     since_timestamp: since,
+    bucket_interval: bucketInterval,
   });
   return (data as TimeseriesBucket[]) ?? [];
 }
@@ -87,18 +89,29 @@ function computeNicheSummaries(divergences: Divergence[]): NicheSummary[] {
     .sort((a, b) => b.avg_abs_divergence - a.avg_abs_divergence);
 }
 
+/** Pick a bucket interval that keeps the chart around 30-80 data points per niche. */
+function bucketIntervalForLookback(hours: number): string {
+  if (hours <= 48) return "1 hour";
+  if (hours <= 168) return "4 hours";   // 7D → ~42 buckets
+  if (hours <= 720) return "1 day";     // 1M → ~30 buckets
+  return "1 week";                       // 1Y / ALL → ~52 buckets
+}
+
 export async function getDashboardData(
   lookbackHours = 24,
 ): Promise<DashboardData> {
-  const since = new Date(
-    Date.now() - lookbackHours * 60 * 60 * 1000
-  ).toISOString();
+  // 0 = all time — use a far-past date
+  const since = lookbackHours === 0
+    ? new Date("2020-01-01T00:00:00Z").toISOString()
+    : new Date(Date.now() - lookbackHours * 60 * 60 * 1000).toISOString();
+
+  const bucketInterval = bucketIntervalForLookback(lookbackHours);
 
   // Latest cycle for table + stats; lookback for timeseries chart
   const [lastCycle, divergences, timeseries] = await Promise.all([
     getLastCycle(),
     getLatestCycleDivergences(),
-    getTimeseries(since),
+    getTimeseries(since, bucketInterval),
   ]);
 
   const nicheSummaries = computeNicheSummaries(divergences);
