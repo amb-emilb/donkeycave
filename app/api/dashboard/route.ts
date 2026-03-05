@@ -45,6 +45,7 @@ export async function GET(req: Request) {
       endDate: d.end_date ?? null,
       clobYesPrice: d.clob_yes_price ? Number(d.clob_yes_price) : null,
       negRisk: d.neg_risk ?? false,
+      confidence: d.confidence ? Number(d.confidence) : null,
     })),
     nicheSummaries: data.nicheSummaries.map((n) => ({
       niche: n.niche,

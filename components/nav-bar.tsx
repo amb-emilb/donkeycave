@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { label: "CAVE", href: "/cave" },
+  { label: "CAVE", href: "/cave", exact: true },
+  { label: "BACKTEST", href: "/cave/backtest" },
   { label: "DOCS", href: "/docs" },
   { label: "LLM", href: "/llm" },
 ];
@@ -30,7 +31,9 @@ export default function NavBar() {
 
       <div className="flex items-center gap-2">
         {TABS.map((tab) => {
-          const isActive = pathname.startsWith(tab.href);
+          const isActive = tab.exact
+            ? pathname === tab.href
+            : pathname.startsWith(tab.href);
           return (
             <Link
               key={tab.href}

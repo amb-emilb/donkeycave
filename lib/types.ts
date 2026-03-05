@@ -17,6 +17,7 @@ export interface Divergence {
   end_date: string | null;
   clob_yes_price: number | null;
   neg_risk: boolean | null;
+  confidence: number | null;
 }
 
 export interface Cycle {

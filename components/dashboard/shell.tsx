@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Header from "@/components/dashboard/header";
 import StatsBar from "@/components/dashboard/stats-bar";
 import NicheTabs, { type Niche } from "@/components/dashboard/niche-tabs";
@@ -20,6 +20,7 @@ import DateRangeSelector, {
 } from "@/components/dashboard/date-range-selector";
 import ExportButton from "@/components/dashboard/export-button";
 import { useRealtime } from "@/hooks/use-realtime";
+import { useLivePrices } from "@/hooks/use-live-prices";
 
 export interface DashboardData {
   divergences: DivergenceRecord[];
@@ -39,9 +40,33 @@ export default function DashboardShell({ initialData }: DashboardShellProps) {
   const [lookback, setLookback] = useState<LookbackPreset>(24);
   const [loading, setLoading] = useState(false);
 
+  // Extract unique token IDs for live price subscription
+  const tokenIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const d of data.divergences) {
+      if (d.yesTokenId) ids.add(d.yesTokenId);
+    }
+    return Array.from(ids);
+  }, [data.divergences]);
+
+  // Live CLOB WebSocket prices
+  const { prices: livePrices, connected: wsConnected } =
+    useLivePrices(tokenIds);
+
+  // Track whether user has changed lookback from the SSR default
+  const hasChangedLookback = useRef(false);
+
   // Fetch data when lookback changes
   useEffect(() => {
-    if (lookback === 24) return; // Initial data is 24h
+    // On first mount, SSR data matches 24h — skip fetch
+    if (lookback === 24 && !hasChangedLookback.current) return;
+    hasChangedLookback.current = true;
+
+    // Clicking back to 24h? Restore SSR data instead of re-fetching
+    if (lookback === 24) {
+      setData(initialData);
+      return;
+    }
 
     setLoading(true);
     fetch(`/api/dashboard?lookback=${lookback}`)
@@ -56,7 +81,7 @@ export default function DashboardShell({ initialData }: DashboardShellProps) {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [lookback]);
+  }, [lookback, initialData]);
 
   // Realtime updates
   useRealtime({
@@ -70,7 +95,7 @@ export default function DashboardShell({ initialData }: DashboardShellProps) {
   const filteredDivergences = useMemo(() => {
     if (activeNiche === "ALL") return data.divergences;
     return data.divergences.filter(
-      (d) => d.niche.toUpperCase() === activeNiche
+      (d) => d.niche.toUpperCase() === activeNiche,
     );
   }, [data.divergences, activeNiche]);
 
@@ -78,7 +103,7 @@ export default function DashboardShell({ initialData }: DashboardShellProps) {
   const filteredNicheSummaries = useMemo(() => {
     if (activeNiche === "ALL") return data.nicheSummaries;
     return data.nicheSummaries.filter(
-      (n) => n.niche.toUpperCase() === activeNiche
+      (n) => n.niche.toUpperCase() === activeNiche,
     );
   }, [data.nicheSummaries, activeNiche]);
 
@@ -86,7 +111,7 @@ export default function DashboardShell({ initialData }: DashboardShellProps) {
   const filteredTimeseries = useMemo(() => {
     if (activeNiche === "ALL") return data.timeseries;
     return data.timeseries.filter(
-      (t) => t.niche.toUpperCase() === activeNiche
+      (t) => t.niche.toUpperCase() === activeNiche,
     );
   }, [data.timeseries, activeNiche]);
 
@@ -97,7 +122,7 @@ export default function DashboardShell({ initialData }: DashboardShellProps) {
     if (filteredDivergences.length === 0) return 0;
     const sum = filteredDivergences.reduce(
       (acc, d) => acc + Math.abs(d.divergence),
-      0
+      0,
     );
     return sum / filteredDivergences.length;
   }, [filteredDivergences]);
@@ -107,7 +132,7 @@ export default function DashboardShell({ initialData }: DashboardShellProps) {
       return { question: "N/A", divergence: 0 };
     }
     const sorted = [...filteredDivergences].sort(
-      (a, b) => Math.abs(b.divergence) - Math.abs(a.divergence)
+      (a, b) => Math.abs(b.divergence) - Math.abs(a.divergence),
     );
     return {
       question: sorted[0].question,
@@ -193,10 +218,12 @@ export default function DashboardShell({ initialData }: DashboardShellProps) {
           </div>
         </div>
 
-        {/* Divergence table - full width */}
+        {/* Divergence table - full width, with live prices + tradability */}
         <DivergenceTable
           data={data.divergences}
           activeNiche={activeNiche}
+          livePrices={livePrices}
+          wsConnected={wsConnected}
         />
 
         {/* Divergence chart - full width */}
