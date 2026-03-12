@@ -5,10 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { label: "CAVE", href: "/cave", exact: true },
-  { label: "BACKTEST", href: "/cave/backtest" },
-  { label: "DOCS", href: "/docs" },
-  { label: "LLM", href: "/llm" },
+  { label: "OVERVIEW", href: "/cave", exact: true },
+  { label: "CANDIDATES", href: "/cave/candidates" },
+  { label: "TRADES", href: "/cave/trades" },
+  { label: "ACCURACY", href: "/cave/accuracy" },
+  { label: "INSIGHTS", href: "/cave/insights" },
 ];
 
 export default function NavBar() {
@@ -29,7 +30,7 @@ export default function NavBar() {
         </span>
       </Link>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 overflow-x-auto md:gap-2">
         {TABS.map((tab) => {
           const isActive = tab.exact
             ? pathname === tab.href
@@ -38,7 +39,7 @@ export default function NavBar() {
             <Link
               key={tab.href}
               href={tab.href}
-              className={`border-[2px] px-4 py-1.5 font-mono text-xs font-bold uppercase tracking-wider transition-colors ${
+              className={`shrink-0 border-[2px] px-2 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors md:px-3 md:text-xs ${
                 isActive
                   ? "border-[#fe5733] bg-[#fe5733] text-black"
                   : "border-[#333] bg-transparent text-gray-400 hover:border-[#fe5733] hover:text-[#fe5733]"

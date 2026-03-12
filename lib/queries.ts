@@ -31,18 +31,6 @@ export async function getRecentDivergences(
   return (data as Divergence[]) ?? [];
 }
 
-export async function getLatestCycleDivergences(): Promise<Divergence[]> {
-  const lastCycle = await getLastCycle();
-  if (!lastCycle) return [];
-
-  const { data } = await supabase
-    .from("divergences")
-    .select("*")
-    .eq("cycle_id", lastCycle.id)
-    .order("abs_divergence", { ascending: false });
-  return (data as Divergence[]) ?? [];
-}
-
 export async function getNicheSummaries(
   since: string
 ): Promise<NicheSummary[]> {
@@ -97,22 +85,6 @@ function bucketIntervalForLookback(hours: number): string {
   return "1 week";                       // 1Y / ALL → ~52 buckets
 }
 
-/**
- * Deduplicate divergences by market_question, keeping the most recent per market.
- * Input must be sorted by timestamp descending (most recent first).
- */
-function deduplicateByMarket(divergences: Divergence[]): Divergence[] {
-  const seen = new Set<string>();
-  const result: Divergence[] = [];
-  for (const d of divergences) {
-    if (!seen.has(d.market_question)) {
-      seen.add(d.market_question);
-      result.push(d);
-    }
-  }
-  return result;
-}
-
 export async function getDashboardData(
   lookbackHours = 24,
 ): Promise<DashboardData> {
@@ -123,28 +95,13 @@ export async function getDashboardData(
 
   const bucketInterval = bucketIntervalForLookback(lookbackHours);
 
-  // For short lookbacks (≤24h), show the latest cycle snapshot.
-  // For longer lookbacks, show all divergences in the window (deduped by market).
-  const useHistorical = lookbackHours > 24 || lookbackHours === 0;
-
   const [lastCycle, rawDivergences, timeseries] = await Promise.all([
     getLastCycle(),
-    useHistorical
-      ? getRecentDivergences(since, 2000)
-      : getLatestCycleDivergences(),
+    getRecentDivergences(since, 2000),
     getTimeseries(since, bucketInterval),
   ]);
 
-  // Dedup historical results — keep most recent observation per market
-  // getRecentDivergences sorts by abs_divergence desc; re-sort by timestamp desc for dedup
-  const divergences = useHistorical
-    ? deduplicateByMarket(
-        [...rawDivergences].sort(
-          (a, b) =>
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-        ),
-      )
-    : rawDivergences;
+  const divergences = rawDivergences;
 
   const nicheSummaries = computeNicheSummaries(divergences);
 
