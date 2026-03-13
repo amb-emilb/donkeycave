@@ -62,13 +62,29 @@ export default function OverviewShell({
   lastCycle,
 }: Props) {
   const [relTime, setRelTime] = useState("");
+  const [nextCycleStr, setNextCycleStr] = useState("");
   useEffect(() => {
-    setRelTime(getRelativeTime(lastCycle));
-    const iv = setInterval(() => setRelTime(getRelativeTime(lastCycle)), 30000);
+    function update() {
+      setRelTime(getRelativeTime(lastCycle));
+      // Next cycle: 18:05 UTC daily
+      const now = new Date();
+      const next = new Date(now);
+      next.setUTCHours(18, 5, 0, 0);
+      if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+      const diffMin = Math.floor((next.getTime() - now.getTime()) / 60000);
+      if (diffMin < 60) setNextCycleStr(`${diffMin}m`);
+      else {
+        const h = Math.floor(diffMin / 60);
+        const m = diffMin % 60;
+        setNextCycleStr(`${h}h ${m}m`);
+      }
+    }
+    update();
+    const iv = setInterval(update, 30000);
     return () => clearInterval(iv);
   }, [lastCycle]);
 
-  const bankrollStart = 7;
+  const bankrollStart = 84;
   const currentValue = bankrollStart + stats.totalPnl;
 
   return (
@@ -90,9 +106,16 @@ export default function OverviewShell({
                 HALTED: {riskState.halt_reason}
               </span>
             )}
-            <span className="font-mono text-[10px] text-gray-500">
-              Last cycle: {relTime}
-            </span>
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="font-mono text-[10px] text-gray-500">
+                Last cycle: {relTime}
+              </span>
+              {nextCycleStr && (
+                <span className="font-mono text-[10px] text-[#fe5733]">
+                  Next: {nextCycleStr}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -132,6 +155,59 @@ export default function OverviewShell({
           />
         </div>
 
+        {/* Activity Timeline */}
+        {recentTrades.length > 0 && (
+          <div className="border-[3px] border-[#333] bg-[#141414]">
+            <div className="border-b border-[#222] px-4 py-2">
+              <h2 className="font-pixel text-xs uppercase text-[#fe5733]">
+                Activity Log
+              </h2>
+            </div>
+            <div className="flex gap-3 overflow-x-auto px-4 py-3">
+              {recentTrades.slice(0, 12).map((t) => {
+                const isWin = t.resolution_pnl !== null && t.resolution_pnl > 0;
+                const isLoss = t.resolution_pnl !== null && t.resolution_pnl < 0;
+                const isResolved = t.resolved_yes !== null;
+                const borderColor = isWin ? "border-green-500/50" : isLoss ? "border-red-500/50" : "border-[#333]";
+                const timeStr = new Date(t.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + new Date(t.created_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+                return (
+                  <div
+                    key={t.id}
+                    className={`shrink-0 border-[2px] ${borderColor} bg-[#0a0a0a] p-2.5 font-mono text-[9px] w-[180px]`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span
+                        className="px-1 py-0.5 text-[8px] uppercase"
+                        style={{
+                          borderWidth: 1,
+                          borderColor: NICHE_COLORS[t.niche] ?? "#666",
+                          color: NICHE_COLORS[t.niche] ?? "#666",
+                        }}
+                      >
+                        {t.niche}
+                      </span>
+                      <span className={t.side === "BUY_YES" ? "text-green-400" : "text-red-400"}>
+                        {t.side === "BUY_YES" ? "YES" : "NO"}
+                      </span>
+                    </div>
+                    <div className="truncate text-gray-400 mb-1" title={t.market_question}>
+                      {t.market_question}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">{timeStr}</span>
+                      {isResolved ? (
+                        <PnlValue value={t.resolution_pnl!} />
+                      ) : (
+                        <span className="text-gray-500">${t.size.toFixed(2)}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Two columns: niche performance + system health */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Niche Performance */}
@@ -145,7 +221,7 @@ export default function OverviewShell({
               <div className="divide-y divide-[#222]">
                 {nichePerformances.length === 0 ? (
                   <div className="p-6 text-center font-mono text-xs text-gray-500">
-                    No niche data yet. Scorer runs every 30 min.
+                    No niche data yet. Scorer runs daily at 18:05 UTC.
                   </div>
                 ) : (
                   nichePerformances.map((np) => (
@@ -288,7 +364,7 @@ export default function OverviewShell({
             </div>
             {recentTrades.length === 0 ? (
               <div className="p-6 text-center font-mono text-xs text-gray-500">
-                No trades yet. Waiting for execution proxy to unblock live trading.
+                No trades yet. First live cycle fires daily at 18:05 UTC.
               </div>
             ) : (
               <div className="divide-y divide-[#222]">
@@ -336,7 +412,7 @@ export default function OverviewShell({
             </div>
             {topCandidates.length === 0 ? (
               <div className="p-6 text-center font-mono text-xs text-gray-500">
-                No candidates yet. Scorer runs every 30 min.
+                No candidates yet. Scorer runs daily at 18:05 UTC.
               </div>
             ) : (
               <div className="divide-y divide-[#222]">

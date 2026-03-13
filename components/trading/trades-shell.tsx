@@ -281,7 +281,7 @@ export default function TradesShell({ trades, stats }: Props) {
           {filtered.length === 0 && (
             <div className="p-8 text-center font-mono text-xs text-gray-500">
               {trades.length === 0
-                ? "No trades yet. Waiting for execution proxy to unblock live trading."
+                ? "No trades yet. First live cycle fires daily at 18:05 UTC."
                 : "No trades match filters."}
             </div>
           )}

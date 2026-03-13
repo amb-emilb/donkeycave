@@ -14,7 +14,6 @@ import DivergenceChart, {
 import TopOpportunities, {
   type Opportunity,
 } from "@/components/dashboard/top-opportunities";
-import DonkeyInOverlay from "@/components/dashboard/donkey-in-overlay";
 import DateRangeSelector, {
   type LookbackPreset,
 } from "@/components/dashboard/date-range-selector";
@@ -36,7 +35,6 @@ interface DashboardShellProps {
 export default function DashboardShell({ initialData }: DashboardShellProps) {
   const [data, setData] = useState(initialData);
   const [activeNiche, setActiveNiche] = useState<Niche>("ALL");
-  const [showDonkeyIn, setShowDonkeyIn] = useState(false);
   const [lookback, setLookback] = useState<LookbackPreset>(24);
   const [loading, setLoading] = useState(false);
 
@@ -192,19 +190,6 @@ export default function DashboardShell({ initialData }: DashboardShellProps) {
           lastUpdate={data.lastCycle}
         />
 
-        {/* DONKEY IN button */}
-        <button
-          onClick={() => setShowDonkeyIn(true)}
-          className="group w-full cursor-pointer border-[3px] border-[#fe5733] bg-[#fe5733] px-8 py-4 font-pixel text-3xl uppercase text-black shadow-[6px_6px_0_0_#000] transition-all active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
-          style={{
-            textShadow: "none",
-          }}
-        >
-          <span className="inline-block transition-transform group-hover:scale-110">
-            DONKEY IN
-          </span>
-        </button>
-
         {/* Niche filter tabs */}
         <NicheTabs activeNiche={activeNiche} onNicheChange={setActiveNiche} />
 
@@ -230,13 +215,6 @@ export default function DashboardShell({ initialData }: DashboardShellProps) {
         <DivergenceChart timeseriesData={filteredTimeseries} />
       </main>
 
-      {/* DONKEY IN overlay */}
-      {showDonkeyIn && (
-        <DonkeyInOverlay
-          opportunities={topOpportunities}
-          onClose={() => setShowDonkeyIn(false)}
-        />
-      )}
     </div>
   );
 }
