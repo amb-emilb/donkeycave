@@ -162,6 +162,16 @@ export async function getNightlyAnalyses(limit = 30): Promise<LlmLog[]> {
 
 // ─── Aggregated Stats ───
 
+// Niche staleness penalties (must match scorer/index.ts)
+const NICHE_STALENESS_PENALTY: Record<string, number> = {
+  crypto_hourly: 0.40,
+  sports: 0.15,
+  finance: 0.10,
+  xtracker: 0.05,
+  youtube: 0.05,
+  temperature: 0.0,
+};
+
 export async function getTradingStats(): Promise<TradingStats> {
   const [trades, riskState] = await Promise.all([
     getTrades({ limit: 5000 }),
@@ -174,6 +184,30 @@ export async function getTradingStats(): Promise<TradingStats> {
 
   const totalPnl = resolved.reduce((sum, t) => sum + (t.resolution_pnl ?? 0), 0);
 
+  // Mark-to-market loss remaining: dailyLossLimit - (realized loss + worst-case open)
+  const dailyLossLimit = 15;
+  const dailyPnl = riskState?.daily_pnl ?? 0;
+  const openExposure = riskState?.open_exposure ?? 0;
+  const worstCase = dailyPnl - openExposure; // if all open positions go to zero
+  const lossRemaining = Math.max(0, dailyLossLimit + worstCase);
+
+  // Auto-disabled niches: median 1h markout ≤ 0 with ≥5 trades
+  const disabledNiches: string[] = [];
+  const nicheMarkouts = new Map<string, number[]>();
+  for (const t of trades) {
+    if (t.markout_1h !== null) {
+      const arr = nicheMarkouts.get(t.niche) ?? [];
+      arr.push(t.markout_1h);
+      nicheMarkouts.set(t.niche, arr);
+    }
+  }
+  for (const [niche, markouts] of nicheMarkouts) {
+    if (markouts.length < 5) continue;
+    const sorted = [...markouts].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    if (median <= 0) disabledNiches.push(niche);
+  }
+
   return {
     totalPnl,
     totalTrades: trades.length,
@@ -184,6 +218,8 @@ export async function getTradingStats(): Promise<TradingStats> {
     bankroll: riskState?.bankroll ?? 7,
     openExposure: riskState?.open_exposure ?? 0,
     halted: riskState?.halted ?? false,
+    lossRemaining,
+    disabledNiches,
   };
 }
 
@@ -210,13 +246,21 @@ export async function getNichePerformances(): Promise<NichePerformance[]> {
     const resolved = nicheTrades.filter((t) => t.resolved_yes !== null);
     const wins = resolved.filter((t) => (t.resolution_pnl ?? 0) > 0);
     const totalPnl = resolved.reduce((sum, t) => sum + (t.resolution_pnl ?? 0), 0);
-    const markouts = nicheTrades.filter((t) => t.markout_1h !== null);
+    const markouts = nicheTrades.filter((t) => t.markout_1h !== null).map((t) => t.markout_1h!);
     const avgMarkout = markouts.length > 0
-      ? markouts.reduce((sum, t) => sum + (t.markout_1h ?? 0), 0) / markouts.length
+      ? markouts.reduce((sum, m) => sum + m, 0) / markouts.length
+      : null;
+    const medianMarkout = markouts.length > 0
+      ? [...markouts].sort((a, b) => a - b)[Math.floor(markouts.length / 2)]
       : null;
 
     const acc = accMap.get(niche);
     const sampleCount = acc?.sample_count ?? 0;
+
+    // Calibration shrinkage lambda (must match scorer)
+    const shrinkageLambda = sampleCount / (sampleCount + 100);
+    const stalenessPenalty = NICHE_STALENESS_PENALTY[niche] ?? 0.05;
+    const disabled = markouts.length >= 5 && (medianMarkout ?? 0) <= 0;
 
     return {
       niche,
@@ -224,9 +268,13 @@ export async function getNichePerformances(): Promise<NichePerformance[]> {
       totalPnl,
       winRate: resolved.length > 0 ? wins.length / resolved.length : 0,
       avgMarkout1h: avgMarkout,
+      medianMarkout1h: medianMarkout,
       brierScore: acc?.brier_score ?? null,
       sampleCount,
       kellyFraction: 0.25 * (sampleCount / (sampleCount + 50)),
+      shrinkageLambda,
+      stalenessPenalty,
+      disabled,
     };
   }).sort((a, b) => b.tradeCount - a.tradeCount);
 }

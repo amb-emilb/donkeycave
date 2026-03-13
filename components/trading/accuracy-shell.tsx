@@ -69,20 +69,22 @@ export default function AccuracyShell({ accuracies, performances }: Props) {
                 <tr className="border-b border-[#333] text-left text-[9px] uppercase text-gray-500">
                   <th className="px-4 py-2">Niche</th>
                   <th className="px-4 py-2 text-right">Brier Score</th>
-                  <th className="px-4 py-2 text-right">Sample Count</th>
-                  <th className="px-4 py-2 text-right">Avg Confidence</th>
+                  <th className="px-4 py-2 text-right">Samples</th>
                   <th className="px-4 py-2 text-right">Trades</th>
                   <th className="px-4 py-2 text-right">Win Rate</th>
                   <th className="px-4 py-2 text-right">P&L</th>
-                  <th className="px-4 py-2 text-right">Avg Markout 1h</th>
-                  <th className="px-4 py-2">Kelly Graduation</th>
+                  <th className="px-4 py-2 text-right">Med. Markout 1h</th>
+                  <th className="px-4 py-2 text-right">Shrinkage</th>
+                  <th className="px-4 py-2 text-right">Stale Pen.</th>
+                  <th className="px-4 py-2">Kelly Grad.</th>
+                  <th className="px-4 py-2 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1a1a1a]">
                 {sorted.map((np) => {
                   const acc = accMap.get(np.niche);
                   return (
-                    <tr key={np.niche} className="transition-colors hover:bg-[#1a1a1a]">
+                    <tr key={np.niche} className={`transition-colors hover:bg-[#1a1a1a] ${np.disabled ? "opacity-40" : ""}`}>
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
                           <span
@@ -99,9 +101,6 @@ export default function AccuracyShell({ accuracies, performances }: Props) {
                         {np.sampleCount}
                       </td>
                       <td className="px-4 py-2.5 text-right text-gray-300">
-                        {acc?.avg_confidence ? (acc.avg_confidence * 100).toFixed(1) + "%" : "--"}
-                      </td>
-                      <td className="px-4 py-2.5 text-right text-gray-300">
                         {np.tradeCount}
                       </td>
                       <td className="px-4 py-2.5 text-right text-gray-300">
@@ -115,14 +114,29 @@ export default function AccuracyShell({ accuracies, performances }: Props) {
                         ) : "--"}
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        {np.avgMarkout1h !== null ? (
-                          <span className={np.avgMarkout1h > 0 ? "text-green-400" : np.avgMarkout1h < 0 ? "text-red-400" : "text-gray-400"}>
-                            {(np.avgMarkout1h * 100).toFixed(2)}%
+                        {np.medianMarkout1h !== null ? (
+                          <span className={np.medianMarkout1h > 0 ? "text-green-400" : np.medianMarkout1h < 0 ? "text-red-400" : "text-gray-400"}>
+                            {(np.medianMarkout1h * 100).toFixed(2)}%
                           </span>
                         ) : "--"}
                       </td>
+                      <td className="px-4 py-2.5 text-right text-gray-300">
+                        {(np.shrinkageLambda * 100).toFixed(0)}%
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <span className={np.stalenessPenalty > 0.2 ? "text-yellow-400" : np.stalenessPenalty > 0 ? "text-gray-300" : "text-green-400"}>
+                          {np.stalenessPenalty > 0 ? `-${(np.stalenessPenalty * 100).toFixed(0)}%` : "0%"}
+                        </span>
+                      </td>
                       <td className="px-4 py-2.5">
                         <GraduationBar fraction={np.kellyFraction / 0.25} />
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        {np.disabled ? (
+                          <span className="border border-red-500/50 px-1.5 py-0.5 text-[9px] text-red-400">DISABLED</span>
+                        ) : (
+                          <span className="border border-green-500/50 px-1.5 py-0.5 text-[9px] text-green-400">ACTIVE</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -154,27 +168,41 @@ export default function AccuracyShell({ accuracies, performances }: Props) {
           </div>
         </div>
 
-        {/* Calibration Guide */}
-        <div className="border-[3px] border-[#333] bg-[#141414] p-4">
-          <h3 className="mb-2 font-pixel text-xs uppercase text-[#fe5733]">
-            Brier Score Reference
-          </h3>
-          <div className="grid grid-cols-2 gap-2 font-mono text-[10px] md:grid-cols-4">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 bg-green-400" />
-              <span className="text-gray-400">&lt; 0.15: Excellent</span>
+        {/* Reference Guides */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="border-[3px] border-[#333] bg-[#141414] p-4">
+            <h3 className="mb-2 font-pixel text-xs uppercase text-[#fe5733]">
+              Brier Score Reference
+            </h3>
+            <div className="grid grid-cols-2 gap-2 font-mono text-[10px]">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 bg-green-400" />
+                <span className="text-gray-400">&lt; 0.15: Excellent</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 bg-yellow-400" />
+                <span className="text-gray-400">0.15 - 0.25: Good</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 bg-orange-400" />
+                <span className="text-gray-400">0.25 - 0.35: Fair</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 bg-red-400" />
+                <span className="text-gray-400">&gt; 0.35: Poor</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 bg-yellow-400" />
-              <span className="text-gray-400">0.15 - 0.25: Good</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 bg-orange-400" />
-              <span className="text-gray-400">0.25 - 0.35: Fair</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 bg-red-400" />
-              <span className="text-gray-400">&gt; 0.35: Poor (disable?)</span>
+          </div>
+
+          <div className="border-[3px] border-[#333] bg-[#141414] p-4">
+            <h3 className="mb-2 font-pixel text-xs uppercase text-[#fe5733]">
+              Safety Mechanisms
+            </h3>
+            <div className="font-mono text-[10px] text-gray-400 space-y-1">
+              <p><span className="text-gray-300">Shrinkage:</span> Pulls signal probability toward 50% for cold-start niches. 0% = no trust, 100% = full trust.</p>
+              <p><span className="text-gray-300">Stale Penalty:</span> Confidence haircut per niche. Crypto: -40% (prices move before execution).</p>
+              <p><span className="text-gray-300">Auto-disable:</span> Niche disabled if median 1h markout ≤ 0 after 5+ trades.</p>
+              <p><span className="text-gray-300">Friction buffer:</span> Edge must exceed spread/2 + 1% to trade.</p>
             </div>
           </div>
         </div>

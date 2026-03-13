@@ -126,9 +126,9 @@ export default function OverviewShell({
             sub={`Started $${bankrollStart}`}
           />
           <StatCard
-            label="System"
-            value={riskState?.halted ? "HALTED" : "ACTIVE"}
-            sub={stats.totalTrades === 0 ? "Dry run (geoblock)" : "Live"}
+            label="Loss Budget"
+            value={`$${stats.lossRemaining.toFixed(2)}`}
+            sub={`MTM: worst-case $${(stats.openExposure + Math.abs(Math.min(0, stats.todayPnl))).toFixed(2)} at risk`}
           />
         </div>
 
@@ -149,13 +149,16 @@ export default function OverviewShell({
                   </div>
                 ) : (
                   nichePerformances.map((np) => (
-                    <div key={np.niche} className="flex items-center gap-3 px-4 py-2.5">
+                    <div key={np.niche} className={`flex items-center gap-3 px-4 py-2.5 ${np.disabled ? "opacity-40" : ""}`}>
                       <span
                         className="w-2 h-2 shrink-0"
                         style={{ backgroundColor: NICHE_COLORS[np.niche] ?? "#666" }}
                       />
                       <span className="w-28 shrink-0 font-mono text-xs uppercase text-gray-300">
                         {np.niche}
+                        {np.disabled && (
+                          <span className="ml-1 text-[8px] text-red-400 border border-red-500/50 px-1">OFF</span>
+                        )}
                       </span>
                       <div className="flex flex-1 flex-wrap items-center gap-3 font-mono text-[10px]">
                         <span className="text-gray-500">
@@ -174,7 +177,14 @@ export default function OverviewShell({
                           </span>
                         </span>
                         <span className="text-gray-500">
-                          samples: <span className="text-gray-300">{np.sampleCount}</span>
+                          shrink:{" "}
+                          <span className="text-gray-300">{(np.shrinkageLambda * 100).toFixed(0)}%</span>
+                        </span>
+                        <span className="text-gray-500">
+                          stale:{" "}
+                          <span className={np.stalenessPenalty > 0.2 ? "text-yellow-400" : "text-gray-300"}>
+                            -{(np.stalenessPenalty * 100).toFixed(0)}%
+                          </span>
                         </span>
                         <span className="text-gray-500">
                           kelly_f:{" "}
@@ -227,6 +237,22 @@ export default function OverviewShell({
                     {riskState?.wins_today ?? 0}W / {riskState?.losses_today ?? 0}L
                   </span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Loss Budget (MTM)</span>
+                  <span className={stats.lossRemaining < 5 ? "text-yellow-400" : "text-green-400"}>
+                    ${stats.lossRemaining.toFixed(2)} left
+                  </span>
+                </div>
+                {stats.disabledNiches.length > 0 && (
+                  <div className="border-t border-[#222] pt-2">
+                    <div className="text-[9px] text-red-400 uppercase mb-1">
+                      Disabled Niches (neg markout)
+                    </div>
+                    {stats.disabledNiches.map((n) => (
+                      <div key={n} className="pl-2 text-red-400/70">{n}</div>
+                    ))}
+                  </div>
+                )}
                 {riskState?.exposure_by_niche && Object.keys(riskState.exposure_by_niche).length > 0 && (
                   <>
                     <div className="border-t border-[#222] pt-2 text-[9px] text-gray-500 uppercase">

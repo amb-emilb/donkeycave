@@ -114,6 +114,8 @@ export interface TradingStats {
   bankroll: number;
   openExposure: number;
   halted: boolean;
+  lossRemaining: number;       // $ left before daily loss halt (MTM)
+  disabledNiches: string[];    // niches auto-disabled by negative markout
 }
 
 export interface NichePerformance {
@@ -122,7 +124,11 @@ export interface NichePerformance {
   totalPnl: number;
   winRate: number;
   avgMarkout1h: number | null;
+  medianMarkout1h: number | null;
   brierScore: number | null;
   sampleCount: number;
   kellyFraction: number;
+  shrinkageLambda: number;     // calibration shrinkage: 0 = no trust, 1 = full trust
+  stalenessPenalty: number;    // confidence haircut for this niche
+  disabled: boolean;           // auto-disabled by negative median markout
 }
