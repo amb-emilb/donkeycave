@@ -56,15 +56,15 @@ export default function AgentsPage() {
     <main className="min-h-screen bg-cave-bg p-4 md:p-6">
       <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 md:gap-6">
         {/* ── GUARDIAN ── */}
-        <div className="relative flex flex-col border-[3px] border-neon bg-cave-surface">
+        <div className="relative flex h-[600px] flex-col border-[3px] border-neon bg-cave-surface">
           {/* Guardian character overlapping left edge */}
-          <div className="pointer-events-none absolute -left-4 bottom-0 z-10 hidden md:block">
+          <div className="pointer-events-none absolute -left-24 bottom-0 z-10 hidden md:block">
             <Image
               src="/guardian.png"
               alt="Guardian"
-              width={280}
-              height={280}
-              className="h-auto w-[280px] object-contain drop-shadow-[0_0_12px_rgba(254,87,51,0.3)]"
+              width={340}
+              height={340}
+              className="h-auto w-[340px] object-contain drop-shadow-[0_0_12px_rgba(254,87,51,0.3)]"
             />
           </div>
 
@@ -105,7 +105,7 @@ export default function AgentsPage() {
           <div
             ref={termRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto bg-[#0a0a0a] p-3 font-mono text-[11px] leading-relaxed md:min-h-[520px]"
+            className="min-h-0 flex-1 overflow-y-auto bg-[#0a0a0a] p-3 font-mono text-[11px] leading-relaxed"
           >
             {logs.length === 0 && (
               <div className="flex h-full items-center justify-center text-gray-600">
@@ -161,7 +161,7 @@ export default function AgentsPage() {
         </div>
 
         {/* ── HUNTER ── */}
-        <div className="relative flex flex-col border-[3px] border-[#333] bg-cave-surface">
+        <div className="relative flex h-[600px] flex-col border-[3px] border-[#333] bg-cave-surface">
           {/* Greyed-out overlay */}
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#0a0a0a]/80">
             <Image
@@ -206,7 +206,7 @@ export default function AgentsPage() {
               </p>
             </div>
           </div>
-          <div className="flex-1 bg-[#0a0a0a] md:min-h-[520px]" />
+          <div className="min-h-0 flex-1 bg-[#0a0a0a]" />
           <div className="border-t border-cave-border px-3 py-1.5">
             <span className="font-mono text-[9px] text-gray-700">
               Inactive
