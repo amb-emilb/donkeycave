@@ -11,6 +11,7 @@ const CAVE_TABS = [
   { label: "TRADES", href: "/cave/trades" },
   { label: "ACCURACY", href: "/cave/accuracy" },
   { label: "INSIGHTS", href: "/cave/insights" },
+  { label: "AGENTS", href: "/cave/agents" },
 ];
 
 const SECTIONS = [
