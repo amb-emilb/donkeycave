@@ -3,10 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
-const VPS_URL = "http://81.27.109.191:3100";
-const PROXY_SECRET =
-  "7b6ce57a8093020a88ea6184fd2fe87c54ebc65f115d02dcd6f9a938e3f15f3b";
-
 interface LogEntry {
   ts: string;
   level: "info" | "warn" | "error";
@@ -27,9 +23,7 @@ export default function AgentsPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const es = new EventSource(
-      `${VPS_URL}/logs?token=${PROXY_SECRET}`
-    );
+    const es = new EventSource("/api/logs");
 
     es.onopen = () => setConnected(true);
     es.onmessage = (ev) => {
@@ -62,15 +56,27 @@ export default function AgentsPage() {
     <main className="min-h-screen bg-cave-bg p-4 md:p-6">
       <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 md:gap-6">
         {/* ── GUARDIAN ── */}
-        <div className="flex flex-col border-[3px] border-neon bg-cave-surface">
+        <div className="relative flex flex-col border-[3px] border-neon bg-cave-surface">
+          {/* Guardian character overlapping left edge */}
+          <div className="pointer-events-none absolute -left-4 bottom-0 z-10 hidden md:block">
+            <Image
+              src="/guardian.png"
+              alt="Guardian"
+              width={280}
+              height={280}
+              className="h-auto w-[280px] object-contain drop-shadow-[0_0_12px_rgba(254,87,51,0.3)]"
+            />
+          </div>
+
           {/* Header */}
           <div className="flex items-center gap-4 border-b-[3px] border-neon px-4 py-3">
+            {/* Mobile-only small guardian */}
             <Image
               src="/guardian.png"
               alt="Guardian"
               width={64}
               height={64}
-              className="h-16 w-16 object-contain"
+              className="h-16 w-16 object-contain md:hidden"
             />
             <div className="flex flex-col">
               <h2
